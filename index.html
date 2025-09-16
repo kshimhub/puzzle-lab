@@ -30,7 +30,12 @@
          鍵（任意）:
          <input id="key" type="text" placeholder="例: class-2025">
        </label>
-  
+
+       <label for="keyInput">キー：</label>
+       <input id="keyInput" type="text" inputmode="latin" 
+              pattern="[A-Za-z0-9-_]*" placeholder="半角英数字" />
+       <button id="applyKeyBtn">適用</button>
+
        <label>
          反転も混ぜる:
          <input id="withFlip" type="checkbox">
