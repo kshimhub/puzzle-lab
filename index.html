@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>Privacy Puzzle Lab</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Privacy Puzzle Lab</h1>
+    <div class="controls">
+      <label class="file">
+        <input id="file" type="file" accept="image/*">
+        画像を選ぶ
+      </label>
+      <label>
+        分割:
+        <select id="grid">
+          <option value="3">3×3</option>
+          <option value="4" selected>4×4</option>
+          <option value="5">5×5</option>
+          <option value="6">6×6</option>
+        </select>
+      </label>
+      <label>
+        回転を混ぜる:
+        <input id="withRot" type="checkbox">
+      </label>
+      <button id="btnShuffle" disabled>Shuffle</button>
+      <button id="btnReset" disabled>Reset</button>
+      <button id="btnExport" disabled>Export (PNG)</button>
+    </div>
+    <p class="hint">
+      操作: ピースを2回クリックで入れ替え / 右クリック or <kbd>R</kbd> で回転（タップ長押しでも回転）<br>
+      <small>※ すべてローカル処理。画像はサーバへ送信されません。</small>
+    </p>
+  </header>
+
+  <main>
+    <canvas id="board" width="600" height="600" aria-label="puzzle board"></canvas>
+  </main>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(()=>{});
+      });
+    }
+  </script>
+  <script src="puzzle.js" type="module"></script>
+</body>
+</html>
+
