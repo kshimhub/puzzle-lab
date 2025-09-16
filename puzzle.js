@@ -28,8 +28,10 @@ const ctx        = canvas.getContext('2d');
 const gridSel    = $('grid');    // 3/4/5/6...
 const withRot    = $('withRot'); // 回転を混ぜる
 
-// 状態
-let N = 4;                    // 分割数
+// 固定タイル用の状態
+let tilePx = 32;     // UIから読み取る。初期値は32
+let tilesW = 0;      // 横タイル数 = floor(canvas.width  / tilePx)
+let tilesH = 0;      // 縦タイル数 = floor(canvas.height / tilePx)
 let imgBitmap = null;         // 読み込んだ画像
 let pieces = [];              // [{idx, rot, flipH, flipV}]
 let initialPieces = [];       // Reset用
@@ -107,9 +109,17 @@ function setupCanvas() {
     srcRect = { x: 0, y: 0, w: imgBitmap.width, h: imgBitmap.height };
     canvas.width = imgBitmap.width; canvas.height = imgBitmap.height;
   }
-  pieceW = canvas.width / N;
-  pieceH = canvas.height / N;
-}
+  // ▼ここから固定タイル方式▼
+  // UIからタイルサイズを取得（無ければ32）
+  const sel = document.getElementById('tilePx');
+  tilePx = Number(sel?.value || 32);
+  // タイルサイズは正方で固定
+  pieceW = tilePx;
+  pieceH = tilePx;
+  // 画像領域をタイルで何枚作れるか（端の半端はピース化しない）
+  tilesW = Math.floor(canvas.width  / pieceW);
+  tilesH = Math.floor(canvas.height / pieceH);
+  }
 
 // 表示はCSSで縮小（解像度は保持）
 function resizePieces() {
@@ -120,7 +130,9 @@ function resizePieces() {
 // =============== 盤面初期化 ===============
 function resetBoard() {
   pieces = [];
-  for (let i = 0; i < N * N; i++) pieces.push({ idx: i, rot: 0, flipH: false, flipV: false });
+  for (let i = 0; i < tilesW * tilesH; i++) {
+    pieces.push({ idx: i, rot: 0, flipH: false, flipV: false });
+  }
   initialPieces = pieces.map(p => ({ ...p }));
   selectedIndex = null;
 }
@@ -196,15 +208,16 @@ function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!imgBitmap) { drawGrid(); return; }
 
-  const tileW = srcRect.w / N;
-  const tileH = srcRect.h / N;
+  // ソース上のタイルの幅・高さは、表示タイルと同じピクセル数
+  const tileW = pieceW; // = tilePx
+  const tileH = pieceH; // = tilePx
 
-  for (let gy = 0; gy < N; gy++) {
-    for (let gx = 0; gx < N; gx++) {
-      const pos = gy * N + gx;
+  for (let gy = 0; gy < tilesH; gy++) {
+    for (let gx = 0; gx < tilesW; gx++) {
+      const pos = gy * tilesW + gx;
       const p = pieces[pos];
-      const sxTile = p.idx % N;
-      const syTile = Math.floor(p.idx / N);
+      const sxTile = p.idx % tilesW;
+      const syTile = Math.floor(p.idx / tilesW);
 
       const dx = gx * pieceW;
       const dy = gy * pieceH;
@@ -240,11 +253,13 @@ function drawGrid() {
   ctx.save();
   ctx.strokeStyle = 'rgba(0,0,0,.15)';
   ctx.lineWidth = 1;
-  for (let i = 1; i < N; i++) {
+  for (let i = 1; i < tilesW; i++) {
     const x = i * pieceW + 0.5;
-    const y = i * pieceH + 0.5;
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, tilesH * pieceH); ctx.stroke();
+  }
+  for (let j = 1; j < tilesH; j++) {
+    const y = j * pieceH + 0.5;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(tilesW * pieceW, y); ctx.stroke();
   }
   ctx.restore();
 }
@@ -256,8 +271,8 @@ function posFromClient(clientX, clientY) {
   const y = (clientY - rect.top)  * (canvas.height / rect.height);
   const gx = Math.floor(x / pieceW);
   const gy = Math.floor(y / pieceH);
-  if (gx < 0 || gy < 0 || gx >= N || gy >= N) return -1;
-  return gy * N + gx;
+  if (gx < 0 || gy < 0 || gx >= tilesW || gy >= tilesH) return -1;
+  return gy * tilesW + gx;
 }
 
 canvas?.addEventListener('contextmenu', (e) => e.preventDefault());
