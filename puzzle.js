@@ -1,5 +1,5 @@
 // =======================
-// puzzle.js (固定タイル版)
+// puzzle.js (固定タイル版, 端は残す)
 // - 「ブロック」セレクトで 16/32/64/128 px 正方ピース
 // - 「鍵」(パスフレーズ) で再現可能シャッフル (SHA-256→xorshift32)
 // - 回転(90°刻み) + 反転(左右/上下) を混ぜる
@@ -11,22 +11,22 @@ const $ = (id) => document.getElementById(id);
 
 // UI要素
 const fileInput  = $('file');
-const keyInput   = $('key');          // パスフレーズ
-const withFlip   = $('withFlip');     // 反転も混ぜる
-const squareCrop = $('squareCrop');   // 正方形に揃える
+const keyInput   = $('key');
+const withFlip   = $('withFlip');
+const squareCrop = $('squareCrop');
 const btnShuffle = $('btnShuffle');
 const btnReset   = $('btnReset');
 const btnExport  = $('btnExport');
 const canvas     = $('board');
 const ctx        = canvas.getContext('2d');
-const tileSel    = $('tilePx');       // ブロックサイズセレクト
+const tileSel    = $('tilePx');
 
 // 状態
-let tilePx = 32;       // ピクセル単位のピースサイズ
-let tilesW = 0, tilesH = 0; // 横・縦のタイル数
-let imgBitmap = null;  // 読み込んだ画像
-let pieces = [];       // [{idx, rot, flipH, flipV}]
-let initialPieces = []; 
+let tilePx = 32;
+let tilesW = 0, tilesH = 0;
+let imgBitmap = null;
+let pieces = [];
+let initialPieces = [];
 let selectedIndex = null;
 let srcRect = { x:0, y:0, w:0, h:0 };
 let pieceW = 0, pieceH = 0;
@@ -81,13 +81,12 @@ function setupCanvas() {
   // ブロックサイズ
   tilePx = tileSel ? Number(tileSel.value) : 32;
 
-  // 1ピースサイズ（正方）
   pieceW = tilePx;
   pieceH = tilePx;
 
-  // 作れるタイル数（端の余りはそのまま）
-  tilesW = Math.floor(canvas.width  / pieceW);
-  tilesH = Math.floor(canvas.height / pieceH);
+  // 作れるタイル数（端の余りも含める）
+  tilesW = Math.ceil(canvas.width  / pieceW);
+  tilesH = Math.ceil(canvas.height / pieceH);
 }
 
 // =============== 盤面初期化 ===============
@@ -106,15 +105,13 @@ btnShuffle?.addEventListener('click', async () => {
   const seed = keyInput?.value ?? '';
   const rng = await makeRng(seed);
 
-  // Fisher–Yates
   for (let i = pieces.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
   }
 
-  // 回転/反転
   for (const p of pieces) {
-    const r = Math.floor(rng() * 4); // 0,90,180,270
+    const r = Math.floor(rng() * 4);
     p.rot = r * 90;
     if (withFlip && withFlip.checked) {
       p.flipH = rng() < 0.5;
@@ -157,31 +154,32 @@ function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!imgBitmap) { drawGrid(); return; }
 
-  const tileW = pieceW;
-  const tileH = pieceH;
-
   for (let gy = 0; gy < tilesH; gy++) {
     for (let gx = 0; gx < tilesW; gx++) {
       const pos = gy * tilesW + gx;
       const p = pieces[pos];
-      const sxTile = p.idx % tilesW;
-      const syTile = Math.floor(p.idx / tilesW);
 
+      // ソース矩形
+      const sx = srcRect.x + gx * pieceW;
+      const sy = srcRect.y + gy * pieceH;
+      const sw = (gx === tilesW - 1) ? (canvas.width  - gx * pieceW) : pieceW;
+      const sh = (gy === tilesH - 1) ? (canvas.height - gy * pieceH) : pieceH;
+
+      // 描画位置
       const dx = gx * pieceW;
       const dy = gy * pieceH;
+      const dw = sw;
+      const dh = sh;
 
       ctx.save();
-      ctx.translate(dx + pieceW / 2, dy + pieceH / 2);
+      ctx.translate(dx + dw / 2, dy + dh / 2);
       ctx.scale(p.flipH ? -1 : 1, p.flipV ? -1 : 1);
       ctx.rotate((p.rot * Math.PI) / 180);
 
       ctx.drawImage(
         imgBitmap,
-        srcRect.x + sxTile * tileW,
-        srcRect.y + syTile * tileH,
-        tileW, tileH,
-        -pieceW / 2, -pieceH / 2,
-        pieceW, pieceH
+        sx, sy, sw, sh,
+        -dw / 2, -dh / 2, dw, dh
       );
       ctx.restore();
 
@@ -189,7 +187,7 @@ function draw() {
         ctx.save();
         ctx.lineWidth = 3;
         ctx.strokeStyle = '#3b82f6';
-        ctx.strokeRect(dx + 1.5, dy + 1.5, pieceW - 3, pieceH - 3);
+        ctx.strokeRect(dx + 1.5, dy + 1.5, dw - 3, dh - 3);
         ctx.restore();
       }
     }
@@ -203,11 +201,11 @@ function drawGrid() {
   ctx.lineWidth = 1;
   for (let i = 1; i < tilesW; i++) {
     const x = i * pieceW + 0.5;
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, tilesH * pieceH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
   }
   for (let j = 1; j < tilesH; j++) {
     const y = j * pieceH + 0.5;
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(tilesW * pieceW, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
   }
   ctx.restore();
 }
