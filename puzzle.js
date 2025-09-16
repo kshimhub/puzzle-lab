@@ -1,20 +1,16 @@
 // =======================
-// puzzle.js (PWA/教育用スクランブル版)
-// - 「安全性」スライダー: 3x3/4x4/6x6/10x10 に自動マップ
-// - 「鍵」(パスフレーズ) で再現可能シャッフル
-// - 回転(90°刻み) + 反転(左右/上下) を任意で混ぜる
+// puzzle.js (固定タイル版)
+// - 「ブロック」セレクトで 16/32/64/128 px 正方ピース
+// - 「鍵」(パスフレーズ) で再現可能シャッフル (SHA-256→xorshift32)
+// - 回転(90°刻み) + 反転(左右/上下) を混ぜる
 // - 出力PNGは常に元画像の解像度
 // - 正方形クロップのON/OFF切替
-// - 既存UI(grid/withRot)の簡易互換あり
-// すべて端末内で完結（外部送信なし）
 // =======================
 
 const $ = (id) => document.getElementById(id);
 
-// 推奨UI要素（新UI）
+// UI要素
 const fileInput  = $('file');
-const safety     = $('safety');       // <input type="range" min="0" max="3">
-const safetyLbl  = $('safetyLabel');  // テキスト表示
 const keyInput   = $('key');          // パスフレーズ
 const withFlip   = $('withFlip');     // 反転も混ぜる
 const squareCrop = $('squareCrop');   // 正方形に揃える
@@ -23,47 +19,20 @@ const btnReset   = $('btnReset');
 const btnExport  = $('btnExport');
 const canvas     = $('board');
 const ctx        = canvas.getContext('2d');
+const tileSel    = $('tilePx');       // ブロックサイズセレクト
 
-// 互換UI（旧UIが残っている場合のみ参照）
-const gridSel    = $('grid');    // 3/4/5/6...
-const withRot    = $('withRot'); // 回転を混ぜる
-
-// 固定タイル用の状態
-let tilePx = 32;     // UIから読み取る。初期値は32
-let tilesW = 0;      // 横タイル数 = floor(canvas.width  / tilePx)
-let tilesH = 0;      // 縦タイル数 = floor(canvas.height / tilePx)
-let imgBitmap = null;         // 読み込んだ画像
-let pieces = [];              // [{idx, rot, flipH, flipV}]
-let initialPieces = [];       // Reset用
+// 状態
+let tilePx = 32;       // ピクセル単位のピースサイズ
+let tilesW = 0, tilesH = 0; // 横・縦のタイル数
+let imgBitmap = null;  // 読み込んだ画像
+let pieces = [];       // [{idx, rot, flipH, flipV}]
+let initialPieces = []; 
 let selectedIndex = null;
-let srcRect = { x:0, y:0, w:0, h:0 }; // 描画元の領域
-let pieceW = 0, pieceH = 0;   // 1ピース描画サイズ
+let srcRect = { x:0, y:0, w:0, h:0 };
+let pieceW = 0, pieceH = 0;
 
-// 安全性 → N マップ
-const SAFETY_MAP = [
-  { label: '弱め',  N: 3 },
-  { label: 'ふつう', N: 4 },
-  { label: '強め',  N: 6 },
-  { label: '最大',  N: 10 },
-];
-
-// =============== ユーティリティ ===============
-function applySafetyUI() {
-  if (safety) {
-    const s = SAFETY_MAP[parseInt(safety.value, 10)];
-    N = s.N; if (safetyLbl) safetyLbl.textContent = s.label;
-  }
-}
-
-function applyGridFallback() {
-  // 旧UI(grid)がある場合はそれを優先（safety未設置のとき）
-  if (!safety && gridSel) {
-    N = parseInt(gridSel.value || '4', 10);
-  }
-}
-
+// =============== RNG ===============
 async function makeRng(seedText) {
-  // 鍵→SHA-256→xorshift32のseedに
   const enc = new TextEncoder();
   const digest = await crypto.subtle.digest('SHA-256', enc.encode(seedText || ''));
   const b = new Uint8Array(digest);
@@ -74,7 +43,7 @@ async function makeRng(seedText) {
     state ^= state << 13; state >>>= 0;
     state ^= state >>> 17; state >>>= 0;
     state ^= state << 5;  state >>>= 0;
-    return state / 0x100000000; // [0,1)
+    return state / 0x100000000;
   };
 }
 
@@ -87,8 +56,6 @@ fileInput?.addEventListener('change', async (e) => {
   URL.revokeObjectURL(url);
   imgBitmap = await createImageBitmap(blob);
 
-  // UI設定を反映
-  if (safety) applySafetyUI(); else applyGridFallback();
   setupCanvas();
   resetBoard();
   draw();
@@ -99,7 +66,8 @@ fileInput?.addEventListener('change', async (e) => {
 // =============== キャンバス設定 ===============
 function setupCanvas() {
   if (!imgBitmap) return;
-  // 正方形クロップ or そのまま
+
+  // クロップ or そのまま
   const useSquare = !!(squareCrop && squareCrop.checked);
   if (useSquare) {
     const s = Math.min(imgBitmap.width, imgBitmap.height);
@@ -109,22 +77,17 @@ function setupCanvas() {
     srcRect = { x: 0, y: 0, w: imgBitmap.width, h: imgBitmap.height };
     canvas.width = imgBitmap.width; canvas.height = imgBitmap.height;
   }
-  // ▼ここから固定タイル方式▼
-  // UIからタイルサイズを取得（無ければ32）
-  const sel = document.getElementById('tilePx');
-  tilePx = Number(sel?.value || 32);
-  // タイルサイズは正方で固定
+
+  // ブロックサイズ
+  tilePx = tileSel ? Number(tileSel.value) : 32;
+
+  // 1ピースサイズ（正方）
   pieceW = tilePx;
   pieceH = tilePx;
-  // 画像領域をタイルで何枚作れるか（端の半端はピース化しない）
+
+  // 作れるタイル数（端の余りはそのまま）
   tilesW = Math.floor(canvas.width  / pieceW);
   tilesH = Math.floor(canvas.height / pieceH);
-  }
-
-// 表示はCSSで縮小（解像度は保持）
-function resizePieces() {
-  pieceW = canvas.width / N;
-  pieceH = canvas.height / N;
 }
 
 // =============== 盤面初期化 ===============
@@ -137,10 +100,9 @@ function resetBoard() {
   selectedIndex = null;
 }
 
-// =============== シャッフル（鍵付き） ===============
+// =============== シャッフル ===============
 btnShuffle?.addEventListener('click', async () => {
   if (!imgBitmap) return;
-  // 「鍵」優先。なければ空文字（毎回同じ並び）にする
   const seed = keyInput?.value ?? '';
   const rng = await makeRng(seed);
 
@@ -150,17 +112,10 @@ btnShuffle?.addEventListener('click', async () => {
     [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
   }
 
-  // 回転を混ぜる（旧UIに互換 / 新UIは常に回転あり）
-  const allowRotation = withRot ? withRot.checked : true;
-
+  // 回転/反転
   for (const p of pieces) {
-    if (allowRotation) {
-      const r = Math.floor(rng() * 4); // 0,90,180,270
-      p.rot = r * 90;
-    } else {
-      p.rot = 0;
-    }
-    // 反転（新UI）
+    const r = Math.floor(rng() * 4); // 0,90,180,270
+    p.rot = r * 90;
     if (withFlip && withFlip.checked) {
       p.flipH = rng() < 0.5;
       p.flipV = rng() < 0.5;
@@ -183,23 +138,17 @@ btnExport?.addEventListener('click', () => {
   canvas.toBlob((blob) => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `puzzle_${N}x${N}.png`;
+    a.download = `puzzle_${tilePx}px_${tilesW}x${tilesH}.png`;
     a.click();
     URL.revokeObjectURL(a.href);
   }, 'image/png');
 });
 
 // =============== UIイベント ===============
-safety?.addEventListener('input', () => {
-  applySafetyUI();
-  if (imgBitmap) { setupCanvas(); resetBoard(); draw(); }
-});
 squareCrop?.addEventListener('change', () => {
   if (imgBitmap) { setupCanvas(); resetBoard(); draw(); }
 });
-gridSel?.addEventListener('change', () => {
-  // 旧UI: 分割セレクト変更時
-  if (!safety) applyGridFallback();
+tileSel?.addEventListener('change', () => {
   if (imgBitmap) { setupCanvas(); resetBoard(); draw(); }
 });
 
@@ -208,9 +157,8 @@ function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!imgBitmap) { drawGrid(); return; }
 
-  // ソース上のタイルの幅・高さは、表示タイルと同じピクセル数
-  const tileW = pieceW; // = tilePx
-  const tileH = pieceH; // = tilePx
+  const tileW = pieceW;
+  const tileH = pieceH;
 
   for (let gy = 0; gy < tilesH; gy++) {
     for (let gx = 0; gx < tilesW; gx++) {
@@ -264,7 +212,7 @@ function drawGrid() {
   ctx.restore();
 }
 
-// =============== 入れ替え＆回転操作（同じ） ===============
+// =============== 入れ替え＆回転操作 ===============
 function posFromClient(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
   const x = (clientX - rect.left) * (canvas.width / rect.width);
@@ -292,7 +240,6 @@ canvas?.addEventListener('pointerdown', (e) => {
     canvas.removeEventListener('pointerup', up);
     canvas.removeEventListener('pointercancel', up);
 
-    // 右クリック or Ctrl/⌘ で回転
     if (e.button === 2 || e.ctrlKey || e.metaKey) {
       rotatePos(pos); draw(); return;
     }
@@ -320,8 +267,7 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// 画像なしでもグリッドが出るように一応初期描画
-applySafetyUI(); // 新UIがあれば反映
-applyGridFallback();
-resizePieces();
+// 初期表示
+setupCanvas();
+resetBoard();
 draw();
