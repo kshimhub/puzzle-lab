@@ -80,13 +80,12 @@ function setupCanvas() {
 
   // ブロックサイズ
   tilePx = tileSel ? Number(tileSel.value) : 32;
-
   pieceW = tilePx;
   pieceH = tilePx;
 
-  // 作れるタイル数（端の余りも含める）
-  tilesW = Math.ceil(canvas.width  / pieceW);
-  tilesH = Math.ceil(canvas.height / pieceH);
+  // 正方形に割り切れる範囲だけ処理対象にする
+  tilesW = Math.floor(canvas.width  / pieceW);
+  tilesH = Math.floor(canvas.height / pieceH);
 }
 
 // =============== 盤面初期化 ===============
@@ -154,32 +153,32 @@ function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!imgBitmap) { drawGrid(); return; }
 
+  // まず元画像を丸ごと描画（端の余りをそのまま残す）
+  ctx.drawImage(imgBitmap, 0, 0, canvas.width, canvas.height);
+
+  // 正方タイルだけをスクランブル上書き
   for (let gy = 0; gy < tilesH; gy++) {
     for (let gx = 0; gx < tilesW; gx++) {
       const pos = gy * tilesW + gx;
       const p = pieces[pos];
+      const sxTile = p.idx % tilesW;
+      const syTile = Math.floor(p.idx / tilesW);
 
-      // ソース矩形
-      const sx = srcRect.x + gx * pieceW;
-      const sy = srcRect.y + gy * pieceH;
-      const sw = (gx === tilesW - 1) ? (canvas.width  - gx * pieceW) : pieceW;
-      const sh = (gy === tilesH - 1) ? (canvas.height - gy * pieceH) : pieceH;
-
-      // 描画位置
       const dx = gx * pieceW;
       const dy = gy * pieceH;
-      const dw = sw;
-      const dh = sh;
 
       ctx.save();
-      ctx.translate(dx + dw / 2, dy + dh / 2);
+      ctx.translate(dx + pieceW / 2, dy + pieceH / 2);
       ctx.scale(p.flipH ? -1 : 1, p.flipV ? -1 : 1);
       ctx.rotate((p.rot * Math.PI) / 180);
 
       ctx.drawImage(
         imgBitmap,
-        sx, sy, sw, sh,
-        -dw / 2, -dh / 2, dw, dh
+        srcRect.x + sxTile * pieceW,
+        srcRect.y + syTile * pieceH,
+        pieceW, pieceH,
+        -pieceW / 2, -pieceH / 2,
+        pieceW, pieceH
       );
       ctx.restore();
 
@@ -187,11 +186,12 @@ function draw() {
         ctx.save();
         ctx.lineWidth = 3;
         ctx.strokeStyle = '#3b82f6';
-        ctx.strokeRect(dx + 1.5, dy + 1.5, dw - 3, dh - 3);
+        ctx.strokeRect(dx + 1.5, dy + 1.5, pieceW - 3, pieceH - 3);
         ctx.restore();
       }
     }
   }
+
   drawGrid();
 }
 
@@ -201,11 +201,11 @@ function drawGrid() {
   ctx.lineWidth = 1;
   for (let i = 1; i < tilesW; i++) {
     const x = i * pieceW + 0.5;
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, tilesH * pieceH); ctx.stroke();
   }
   for (let j = 1; j < tilesH; j++) {
     const y = j * pieceH + 0.5;
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(tilesW * pieceW, y); ctx.stroke();
   }
   ctx.restore();
 }
