@@ -26,10 +26,11 @@ h1 { margin: 0 0 8px; font-size: 20px; }
 .controls button:disabled { opacity: .5; cursor: not-allowed; }
 .hint { margin: 8px 0 0; color: #666; }
 main { display: grid; place-items: center; padding: 24px; }
-canvas#board {
-  width: min(90vw, var(--size)); height: min(90vw, var(--size));
-  background: #fff; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.08);
-  touch-action: none;
+canvas#board{
+  width: min(90vw, 600px);  /* 表示だけ縮小 */
+  height: auto;
+  background:#fff; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.08);
+  touch-action:none;
 }
 @media (min-width: 760px) {
   h1 { font-size: 22px; }
