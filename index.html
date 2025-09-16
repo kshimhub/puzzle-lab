@@ -6,11 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css" />
-  <!-- Favicon / アイコン -->
-  <link rel="icon" href="./icons/192.png" type="image/png" sizes="192x192">
-  <link rel="icon" href="./icons/512.png" type="image/png" sizes="512x512">
-  <link rel="apple-touch-icon" href="./icons/192.png" sizes="192x192">
-  <link rel="apple-touch-icon" href="./icons/512.png" sizes="512x512">
 </head>
 <body>
   <header>
@@ -30,12 +25,7 @@
          鍵（任意）:
          <input id="key" type="text" placeholder="例: class-2025">
        </label>
-
-       <label for="keyInput">キー：</label>
-       <input id="keyInput" type="text" inputmode="latin" 
-              pattern="[A-Za-z0-9-_]*" placeholder="半角英数字" />
-       <button id="applyKeyBtn">適用</button>
-
+  
        <label>
          反転も混ぜる:
          <input id="withFlip" type="checkbox">
@@ -70,4 +60,3 @@
   <script src="puzzle.js" type="module"></script>
 </body>
 </html>
-
