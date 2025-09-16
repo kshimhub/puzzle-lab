@@ -6,6 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css" />
+  <!-- Favicon / Icons (相対参照) -->
+  <link rel="icon" href="./icons/192.png" type="image/png" sizes="192x192">
+  <link rel="icon" href="./icons/512.png" type="image/png" sizes="512x512">
+  <link rel="apple-touch-icon" href="./icons/192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="./icons/512.png" sizes="512x512">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
 </head>
 <body>
   <header>
@@ -15,12 +23,16 @@
          <input id="file" type="file" accept="image/*"> 画像を選ぶ
        </label>
   
+       <!-- 固定ブロックサイズ（正方・2のべき乗） -->
        <label>
-         安全性:
-         <input id="safety" type="range" min="0" max="3" value="1" step="1">
-         <span id="safetyLabel">ふつう</span>
-       </label>
-  
+         ブロック:
+         <select id="tilePx">
+           <option value="16">16×16（最強）</option>
+           <option value="32" selected>32×32</option>
+           <option value="64">64×64（弱め）</option>
+           <option value="128">128×128</option>
+         </select>
+       </label>  
        <label title="同じ鍵なら同じ並びになります">
          鍵（任意）:
          <input id="key" type="text" placeholder="例: class-2025">
