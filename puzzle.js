@@ -46,35 +46,6 @@ const SAFETY_MAP = [
 ];
 
 // =============== ユーティリティ ===============
-// 16×16タイル用: タイル配列を構築（端の半端は除外）
-function buildTileRegions(w, h, tileSize=16) {
-  const W = Math.floor(w / tileSize) * tileSize;
-  const H = Math.floor(h / tileSize) * tileSize;
-  const tiles = [];
-  for (let y = 0; y < H; y += tileSize) {
-    for (let x = 0; x < W; x += tileSize) {
-      tiles.push({ x, y, w: tileSize, h: tileSize });
-    }
-  }
-  return { tiles, coverW: W, coverH: H };
-}
-
-// 1ピースを回転＋反転して描画
-function drawTransformedTile(ctx, srcCanvas, srcRect, dstRect, rot, flipH, flipV) {
-  const { x: sx, y: sy, w, h } = srcRect;
-  const { x: dx, y: dy } = dstRect;
-  const off = new OffscreenCanvas(w, h);
-  const octx = off.getContext('2d');
-  octx.drawImage(srcCanvas, sx, sy, w, h, 0, 0, w, h);
-
-  ctx.save();
-  ctx.translate(dx + w/2, dy + h/2);
-  if (rot) ctx.rotate(rot * Math.PI/180);
-  ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
-  ctx.drawImage(off, -w/2, -h/2, w, h);
-  ctx.restore();
-}
-
 function applySafetyUI() {
   if (safety) {
     const s = SAFETY_MAP[parseInt(safety.value, 10)];
@@ -161,22 +132,10 @@ btnShuffle?.addEventListener('click', async () => {
   const seed = keyInput?.value ?? '';
   const rng = await makeRng(seed);
 
-  if (document.getElementById("strongMode").checked) {
-    // === 最強モード ===
-    const { tiles } = buildTileRegions(image.width, image.height, 16);
-    const order = shuffle([...tiles.keys()], rng);
-    tiles.forEach((src, i) => {
-      const dst = tiles[order[i]];
-      const rot = [0, 90, 180, 270][Math.floor(rng()*4)];
-      const flipH = rng() < 0.5, flipV = rng() < 0.5;
-      drawTransformedTile(ctx, image, src, dst, rot, flipH, flipV);
-    });
-  } else {
-    // Fisher–Yates
-    for (let i = pieces.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
-    }
+  // Fisher–Yates
+  for (let i = pieces.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
   }
 
   // 回転を混ぜる（旧UIに互換 / 新UIは常に回転あり）
@@ -216,16 +175,6 @@ btnExport?.addEventListener('click', () => {
     a.click();
     URL.revokeObjectURL(a.href);
   }, 'image/png');
-});
-
-const keyInput = document.getElementById('keyInput');
-const applyKeyBtn = document.getElementById('applyKeyBtn');
-
-applyKeyBtn.addEventListener('click', ()=>{
-  const keyStr = (keyInput.value || '').trim();
-  if (!loadedOriginalCanvas) return; // 画像読み込み済みを前提
-  // “最強”モードを実行
-  scrambleStrong(mainCanvas, loadedOriginalCanvas, keyStr);
 });
 
 // =============== UIイベント ===============
