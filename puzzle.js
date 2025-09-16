@@ -218,6 +218,16 @@ btnExport?.addEventListener('click', () => {
   }, 'image/png');
 });
 
+const keyInput = document.getElementById('keyInput');
+const applyKeyBtn = document.getElementById('applyKeyBtn');
+
+applyKeyBtn.addEventListener('click', ()=>{
+  const keyStr = (keyInput.value || '').trim();
+  if (!loadedOriginalCanvas) return; // 画像読み込み済みを前提
+  // “最強”モードを実行
+  scrambleStrong(mainCanvas, loadedOriginalCanvas, keyStr);
+});
+
 // =============== UIイベント ===============
 safety?.addEventListener('input', () => {
   applySafetyUI();
