@@ -11,26 +11,34 @@
   <header>
     <h1>Privacy Puzzle Lab</h1>
     <div class="controls">
-      <label class="file">
-        <input id="file" type="file" accept="image/*">
-        画像を選ぶ
-      </label>
-      <label>
-        分割:
-        <select id="grid">
-          <option value="3">3×3</option>
-          <option value="4" selected>4×4</option>
-          <option value="5">5×5</option>
-          <option value="6">6×6</option>
-        </select>
-      </label>
-      <label>
-        回転を混ぜる:
-        <input id="withRot" type="checkbox">
-      </label>
-      <button id="btnShuffle" disabled>Shuffle</button>
-      <button id="btnReset" disabled>Reset</button>
-      <button id="btnExport" disabled>Export (PNG)</button>
+        <label class="file">
+         <input id="file" type="file" accept="image/*"> 画像を選ぶ
+       </label>
+  
+       <label>
+         安全性:
+         <input id="safety" type="range" min="0" max="3" value="1" step="1">
+         <span id="safetyLabel">ふつう</span>
+       </label>
+  
+       <label title="同じ鍵なら同じ並びになります">
+         鍵（任意）:
+         <input id="key" type="text" placeholder="例: class-2025">
+       </label>
+  
+       <label>
+         反転も混ぜる:
+         <input id="withFlip" type="checkbox">
+       </label>
+  
+       <label title="出力サイズは常に元画像の解像度です">
+         正方形に揃える:
+         <input id="squareCrop" type="checkbox">
+       </label>
+  
+       <button id="btnShuffle" disabled>Shuffle</button>
+       <button id="btnReset" disabled>Reset</button>
+       <button id="btnExport" disabled>Export (PNG)</button>
     </div>
     <p class="hint">
       操作: ピースを2回クリックで入れ替え / 右クリック or <kbd>R</kbd> で回転（タップ長押しでも回転）<br>
